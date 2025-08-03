@@ -13,6 +13,11 @@ let bird = {
 let pipes = [];
 let score = 0;
 let gameLoop;
+let frames = 0;
+
+// 加载资源
+const pipeImage = new Image();
+pipeImage.src = 'assets/images/teacher1.png';
 
 // 游戏控制
 function jump() {
@@ -28,54 +33,21 @@ document.addEventListener('keydown', (e) => {
 // 管道生成
 function createPipe() {
     const gap = 150;
-    const pipeWidth = 50;
     const minHeight = 50;
     const maxHeight = canvas.height - gap - minHeight;
     const height = Math.random() * (maxHeight - minHeight) + minHeight;
+    const width = Math.random() * 100 + 50; // 随机宽度 50-150
 
     pipes.push({
         x: canvas.width,
         topHeight: height,
         bottomY: height + gap,
-        passed: false,
-        imgIndex: Math.floor(Math.random() * assets.pipes.length)  // 随机选择图片索引
-    });
-}
-
-// 游戏循环
-// 资源加载
-// 修改资源定义
-const assets = {
-    bird: new Image(),
-    pipes: [],  // 改为数组存储多个管道图片
-    bg: new Image()
-};
-
-// 自动加载pipes目录下所有图片
-const pipeImages = ['pipe1.png', 'pipe2.png', 'pipe3.png'];
-pipeImages.forEach(img => {
-    const image = new Image();
-    image.src = `assets/images/pipes/${img}`;
-    assets.pipes.push(image);
-});
-
-// 修改管道对象结构
-function createPipe() {
-    const gap = 150;
-    const pipeWidth = 50;
-    const minHeight = 50;
-    const maxHeight = canvas.height - gap - minHeight;
-    const height = Math.random() * (maxHeight - minHeight) + minHeight;
-
-    pipes.push({
-        x: canvas.width,
-        topHeight: height,
-        bottomY: height + gap,
+        width: width, // 存储宽度
         passed: false
     });
 }
 
-// 替换原有绘制逻辑
+// 游戏循环
 function update() {
     // 更新鸟的位置
     bird.velocity += bird.gravity;
@@ -85,11 +57,12 @@ function update() {
     if (frames % 150 === 0) {
         createPipe();
     }
+    frames++;
 
     // 更新管道位置和得分
     pipes.forEach(pipe => {
         pipe.x -= 2;
-        
+
         // 得分检测
         if (!pipe.passed && pipe.x < bird.x) {
             score++;
@@ -99,7 +72,7 @@ function update() {
 
         // 碰撞检测
         if (
-            bird.x < pipe.x + 50 &&
+            bird.x < pipe.x + pipe.width &&
             bird.x + 30 > pipe.x &&
             (bird.y < pipe.topHeight || bird.y + 20 > pipe.bottomY)
         ) {
@@ -119,62 +92,30 @@ function update() {
     ctx.fillStyle = 'yellow';
     ctx.fillRect(bird.x, bird.y, 30, 20);
 
-    ctx.fillStyle = 'green';
+    // 绘制管道
     pipes.forEach(pipe => {
-        ctx.fillRect(pipe.x, 0, 50, pipe.topHeight);
-        ctx.fillRect(pipe.x, pipe.bottomY, 50, canvas.height - pipe.bottomY);
-    });
-
-    // 绘制背景
-    ctx.drawImage(assets.bg, 0, 0, canvas.width, canvas.height);
-    
-    // 绘制小鸟
-    ctx.drawImage(assets.bird, bird.x, bird.y, 40, 30);
-    
-    // 绘制管道（带动态尺寸）
-    pipes.forEach(pipe => {
-        const img = assets.pipes[pipe.imgIndex];
-        const scaleFactor = img.naturalHeight / pipe.topHeight;
-        const scaledWidth = img.naturalWidth / scaleFactor;
-        
         // 上管道
-        ctx.drawImage(img, 
-            pipe.x, 0, 
-            scaledWidth, pipe.topHeight
-        );
-        
-        // 下管道
-        ctx.drawImage(img, 
-            pipe.x, pipe.bottomY, 
-            scaledWidth, canvas.height - pipe.bottomY
-        );
+        ctx.drawImage(pipeImage, pipe.x, 0, pipe.width, pipe.topHeight);
+        // 下管道，需要翻转图片
+        ctx.save();
+        ctx.translate(pipe.x + pipe.width, pipe.bottomY + (canvas.height - pipe.bottomY));
+        ctx.rotate(Math.PI);
+        ctx.drawImage(pipeImage, 0, 0, pipe.width, canvas.height - pipe.bottomY);
+        ctx.restore();
     });
-}
-
-// 更新碰撞检测
-function checkCollision(pipe) {
-    const img = assets.pipes[pipe.imgIndex];
-    const actualWidth = img.naturalWidth * (bird.y / pipe.topHeight);
-    
-    return (
-        bird.x < pipe.x + actualWidth &&
-        bird.x + 30 > pipe.x &&
-        (bird.y < pipe.topHeight || bird.y + 20 > pipe.bottomY)
-    );
-}
-
-// 添加音频控制
-function startGame() {
-    document.getElementById('bgm').play();
-    gameLoop = setInterval(update, 1000/60);
 }
 
 function gameOver() {
-    document.getElementById('bgm').pause();
     cancelAnimationFrame(gameLoop);
     alert(`游戏结束！最终得分: ${score}`);
     location.reload();
 }
 
-let frames = 0;
-gameLoop = setInterval(update, 1000/60);
+function gameStart() {
+    gameLoop = requestAnimationFrame(function loop() {
+        update();
+        gameLoop = requestAnimationFrame(loop);
+    });
+}
+
+gameStart();
